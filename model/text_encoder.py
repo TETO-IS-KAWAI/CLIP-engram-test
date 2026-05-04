@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 from dataclasses import dataclass
 from modules import MSA_Encoder, MOE_Encoder
-from engram import engram_config
+from engram import EngramConfig
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -37,7 +37,7 @@ class TetConfig:
     hc_mult: int = 4
 
     # etc
-    device = "cuda"
+    device:str = "cuda"
 
 class token_embedding(nn.Module) :
     def __init__(self, embed_dim:int, vocab_n:int, max_ctx_n:int):
@@ -50,10 +50,12 @@ class token_embedding(nn.Module) :
         return x
 
 class TET(nn.Module) :
-    def __init__(self, cfg:TetConfig):
+    def __init__(self, cfg:TetConfig, engram_cfg:EngramConfig):
         super().__init__()
         self.cfg = cfg
-        attn_mask = torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device)
+        self.register_buffer(
+            'attn_mask', torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device="cuda", dtype=torch.float16)
+        )
 
         self.use_moe = cfg.use_moe
         
@@ -61,7 +63,7 @@ class TET(nn.Module) :
         if cfg.use_moe :
             self.Encoder = MOE_Encoder(ffn_dropout=cfg.ffn_dropout,
                                     attn_dropout=cfg.attn_dropout,
-                                    mask=attn_mask,
+                                    mask=self.attn_mask,
                                     depth=cfg.depth,
                                     emb_dim=cfg.emb_dim,
                                     ffn_mul=cfg.ffn_mul,
@@ -76,7 +78,7 @@ class TET(nn.Module) :
                                     ) 
         else :
             self.Encoder = MSA_Encoder(ffn_dropout=cfg.ffn_dropout,
-                                    mask=attn_mask,
+                                    mask=self.attn_mask,
                                     attn_dropout=cfg.attn_dropout,
                                     depth=cfg.depth,
                                     emb_dim=cfg.emb_dim,
@@ -84,7 +86,7 @@ class TET(nn.Module) :
                                     n_heads=cfg.n_heads,
                                     use_mhc=cfg.use_mhc,
                                     hc_mult=cfg.hc_mult,
-                                    engram_cfg=cfg.engram_cfg)
+                                    engram_config=engram_cfg)
 
     def forward(self, x, engram_embedding_table=None) :
         emb = self.token_emb(x)

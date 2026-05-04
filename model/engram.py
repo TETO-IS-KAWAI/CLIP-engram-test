@@ -12,7 +12,7 @@ from typing import List
 class EngramConfig :
     embd_d: int = 512
     engram_embd_d: int = 1280
-    engram_layer_n: List[int] = [2, 8]
+    engram_layer_n = [2, 8]
 
     engram_vocab_size: int = 226
     
@@ -146,10 +146,3 @@ class EngramModule(nn.Module):
         if not use_mhc : 
             y = y.squeeze(2)
         return y
-
-if __name__ == "__main__" :
-    temp = NgramHashMapping([100, 100], 3)
-    print(temp(torch.randint(0, 10, (5, 5))).shape)
-    temp2 = EngramModule(128, [100, 100], max_ngram=3, engram_embd_d=128, n_streams=8)
-    print(temp2(torch.randn((5, 10, 8, 128)), torch.randint(0, 10, (5, 10))).shape)
-

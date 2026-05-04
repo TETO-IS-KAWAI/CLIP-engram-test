@@ -5,24 +5,22 @@ import numpy as np
 from Image_encoder import VIT
 from text_encoder import TET
 
-from Image_encoder import VitConfig
-from text_encoder import TetConfig
-from engram import EngramConfig
+from model_configs import clip_config, clip_config_set
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class CLIP(nn.Module) :
-    def __init__(self, image_encoder_cfg:VitConfig, v_engram_cfg:EngramConfig, text_encoder_cfg:TetConfig, t_engram_cfg:EngramConfig):
+    def __init__(self, clip_cfg:clip_config):
         super().__init__()
-        self.i_cfg = image_encoder_cfg
-        self.t_cfg = text_encoder_cfg
-        self.i_engram_cfg = v_engram_cfg
-        self.t_engram_cfg = t_engram_cfg
+        self.i_cfg = clip_cfg.vit_config
+        self.t_cfg = clip_cfg.tet_config
+        self.i_engram_cfg = clip_cfg.vit_engram_config
+        self.t_engram_cfg = clip_cfg.tet_engram_config
 
-        self.n_ctx = TetConfig.max_ctx_len
+        self.n_ctx = self.t_cfg.max_ctx_len
 
-        self.image_encoder = VIT(self.i_cfg)
-        self.text_encoder = TET(self.t_cfg)
+        self.image_encoder = VIT(self.i_cfg, self.i_engram_cfg)    
+        self.text_encoder = TET(self.t_cfg, self.t_engram_cfg)
 
         self.ln_t = nn.LayerNorm(self.t_cfg.emb_dim)
         self.ln_i = nn.LayerNorm(self.i_cfg.emb_dim)
@@ -32,10 +30,12 @@ class CLIP(nn.Module) :
 
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-        if text_encoder_cfg.engram_cfg :
+        if self.t_engram_cfg :
             self.engram_embedding = nn.ModuleList([
                 nn.Embedding((self.i_engram_cfg.engram_vocab_size * len(range(self.i_engram_cfg.max_ngram - 1))) * 2, self.i_engram_cfg.engram_embd_d) for _ in self.i_engram_cfg.engram_layer_n
             ])
+        else :
+            self.engram_embedding = None
 
     @property
     def initialize_parameters(self) :
@@ -104,10 +104,11 @@ if __name__ == "__main__" :
     import model_configs
     import torchinfo
 
-    temp_model = CLIP(image_encoder_cfg=model_configs.vit_model.VIT_S_32,
-                      text_encoder_cfg=model_configs.tet_model.TET_S_32).to(device)
-    test_img = torch.randn((100, 3,224, 224), device=device)
-    test_text = torch.randint(0, 100, (100, 77), device=device)
+    temp_model = CLIP(clip_cfg=clip_config_set.clip_B_normal).to(device="cuda", dtype=torch.float16)
+    test_img = torch.randn((100, 3,224, 224), device="cuda", dtype=torch.float16)
+    test_text = torch.randint(0, 100, (100, 77), device="cuda", dtype=torch.int32)
+
+    torchinfo.summary(temp_model, input_data=[(test_img, test_text)])
 
     l_i, l_t, _, _ = temp_model([test_img, test_text])
     print(l_i.shape)

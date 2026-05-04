@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from engram import EngramModule, engram_config
+from engram import EngramModule, EngramConfig
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -326,13 +326,13 @@ class MSABLock(nn.Module) :
             out = self.mhc_attn(x, attn_fn)          # [B, L, n, C]
             out = self.mhc_ffn(x, self.FFN)          # [B, L, n, C]
         else :
-            ln_x = self.ln_1(x)
-            attn_out, _ = self.MSA(ln_x, ln_x, ln_x,
+            out = self.ln_1(x)
+            out, _ = self.MSA(out, out, out,
                     attn_mask=self.mask,
                     need_weights=False)
-            attn_out = attn_out + x
-            ffn_out = self.FFN(self.ln_2(attn_out))
-            out = ffn_out + attn_out
+            out = out + x
+            ffn_out = self.FFN(self.ln_2(out))
+            out = ffn_out + out
         return out
     
 class MOEBlock(nn.Module):
@@ -382,18 +382,18 @@ class MOEBlock(nn.Module):
             out = self.hc_moe(x, moe_fn)      # [B, L, n, C]
             return x, aux_loss_container[0]
         else :
-            attn_out, _ = self.MSA(x, x, x,
+            out, _ = self.MSA(x, x, x,
                     attn_mask=self.mask,
                     need_weights=False)
-            attn_out = attn_out + x
-            moe_out, aux = self.moe(attn_out)
-            out = moe_out + attn_out
+            out = out + x
+            moe_out, aux = self.moe(out)
+            out = moe_out + out
             return out, aux
 
 class MSA_Encoder(nn.Module) :
-    def __init__(self, emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, depth, hc_mult,use_mhc=False,mask=None, engram_cfg:engram_config=None):
+    def __init__(self, emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, depth, hc_mult,use_mhc=False,mask=None, engram_config:EngramConfig=None):
         super().__init__()
-        self.engram_cfg = engram_cfg
+        self.engram_cfg = engram_config
         self.use_mhc = use_mhc
 
         self.n_streams = hc_mult
@@ -406,12 +406,12 @@ class MSA_Encoder(nn.Module) :
                                     mask=mask,
                                     use_mhc=use_mhc,
                                     hc_mult=hc_mult) for _ in range(depth)])
-        if engram_config.engram_layer_n :
+        if engram_config :
             if use_mhc :
-                self.engram_layer = nn.ModuleList([EngramModule(engram_cfg, hc_mult) for _ in engram_config.engram_layer_n])
+                self.engram_layer = nn.ModuleList([EngramModule(engram_config, hc_mult) for _ in engram_config.engram_layer_n])
                 self.engram_mhc = nn.ModuleList([mHyperConnection(emb_dim, hc_mult, sinkhorn_iter=20) for _ in engram_config.engram_layer_n])
             else :
-                self.engram_layer = nn.ModuleList([EngramModule(engram_cfg, 1) for _ in engram_config.engram_layer_n])
+                self.engram_layer = nn.ModuleList([EngramModule(engram_config, 1) for _ in engram_config.engram_layer_n])
 
     def forward(self, x, engram_embedding_table=None, engram_token_id=None) :
         out = x
@@ -420,7 +420,7 @@ class MSA_Encoder(nn.Module) :
             out = out.expand(-1, -1, self.n_streams, -1)
 
         for idx, layer in enumerate(self.MSA_layers) :
-            if idx + 1 in self.engram_cfg.engram_layer_n :
+            if self.engram_cfg and idx + 1 in self.engram_cfg.engram_layer_n :
                 layer_idx = self.engram_cfg.engram_layer_n.index(idx+1)
                 if self.use_mhc :
                     def engram_fn(h) :
@@ -437,9 +437,9 @@ class MSA_Encoder(nn.Module) :
 
     
 class MOE_Encoder(nn.Module) :
-    def __init__(self,emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, c, k, n_experts,depth, every_2, hc_mult,use_mhc=False,mask=None, engram_cfg:engram_config=None):
+    def __init__(self,emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, c, k, n_experts,depth, every_2, hc_mult,use_mhc=False,mask=None, engram_config:EngramConfig=None):
         super().__init__()
-        self.engram_cfg = engram_cfg
+        self.engram_cfg = engram_config
         self.n_streams = hc_mult
         self.use_mhc = use_mhc
 
@@ -487,10 +487,10 @@ class MOE_Encoder(nn.Module) :
                                         mask=mask))
         if engram_config.engram_layer_n :
             if use_mhc :
-                self.engram_layer = nn.ModuleList([EngramModule(engram_cfg, n_streams=hc_mult) for _ in engram_config.engram_layer_n])
+                self.engram_layer = nn.ModuleList([EngramModule(engram_config, n_streams=hc_mult) for _ in engram_config.engram_layer_n])
                 self.engram_mhc = nn.ModuleList([mHyperConnection(emb_dim, hc_mult, sinkhorn_iter=20)])
             else :
-                self.engram_layer = nn.ModuleList([EngramModule(engram_cfg, n_streams=1) for _ in engram_config.engram_layer_n])
+                self.engram_layer = nn.ModuleList([EngramModule(engram_config, n_streams=1) for _ in engram_config.engram_layer_n])
 
     def forward(self, x, engram_embedding_table=None, engram_token_id=None) :
 
@@ -518,15 +518,3 @@ class MOE_Encoder(nn.Module) :
                 aux_loss += loss
         
         return out, aux_loss
-
-if __name__ == "__main__" :
-    test_model = MOE_Encoder(512, 4, 0.1, 1, 0.1, 1, 1, 16, 4, False, hc_mult=4,use_mhc=True, engram_cfg=engram_config).to(device)
-    test_model_2 = MSA_Encoder(512, 4, 0.1, 1, 0.1, 16,use_mhc=True,hc_mult=4, engram_cfg=engram_config).to(device)
-
-    embedding_list = nn.ModuleList([nn.Embedding(sum([engram_config.engram_vocab_size] * 2) * 2, engram_config.engram_embd_d, device=device),
-                                    nn.Embedding(sum([engram_config.engram_vocab_size] * 2) * 2, engram_config.engram_embd_d, device=device)])
-    
-    input_data_l = [torch.randn((10, 32, 512), device=device), embedding_list, torch.randint(0, 10, (10, 32), device=device)]
-
-    print(test_model(torch.randn((10, 32, 512), device=device), embedding_list, torch.randint(0, 10, (10, 32), device=device))[0].shape)
-    print(test_model_2(torch.randn((10, 32, 512), device=device), embedding_list, torch.randint(0, 10, (10, 32), device=device)).shape)
