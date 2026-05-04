@@ -59,23 +59,36 @@ class CLIP(nn.Module) :
         return mask
     
     def encode_text(self, text) :
-        feat = self.text_encoder(text, self.engram_embedding)
+        if self.i_cfg.use_moe :
+            feat, aux_loss = self.text_encoder(text, self.engram_embedding)
+        else :
+            feat = self.text_encoder(text, self.engram_embedding)
 
         if self.t_cfg.use_mhc :
             feat = self.ln_t(feat)[:, :, 0, :]
         else :
             feat = self.ln_t(feat)
         output = feat[torch.arange(feat.shape[0]), text.argmax(dim=-1)] @ self.text_proj
+
+        if self.i_cfg.use_moe :
+            return output, aux_loss
         return output
         
     def encode_image(self, image) :
-        feat = self.image_encoder(image, self.engram_embedding)
+        if self.i_cfg.use_moe :
+            feat, aux_loss = self.image_encoder(image, self.engram_embedding)
+        else :
+            feat = self.image_encoder(image, self.engram_embedding)
 
         if self.i_cfg.use_mhc :
             feat = self.ln_i(feat)[:, :, 0, :]
         else :
             feat = self.ln_i(feat)
         output = feat[:, 0, :] @ self.img_proj
+
+
+        if self.i_cfg.use_moe :
+            return output, aux_loss
         return output
 
     def forward(self, data) :
@@ -109,7 +122,3 @@ if __name__ == "__main__" :
     test_text = torch.randint(0, 100, (100, 77), device="cuda", dtype=torch.int32)
 
     torchinfo.summary(temp_model, input_data=[(test_img, test_text)])
-
-    l_i, l_t, _, _ = temp_model([test_img, test_text])
-    print(l_i.shape)
-    print(l_t.shape)

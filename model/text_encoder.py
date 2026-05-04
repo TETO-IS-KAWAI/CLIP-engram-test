@@ -72,7 +72,7 @@ class TET(nn.Module) :
                                     k=cfg.k,
                                     n_experts=cfg.n_experts,
                                     every_2=cfg.every_2,
-                                    engram_cfg=cfg.engram_cfg,
+                                    engram_config=engram_cfg,
                                     use_mhc=cfg.use_mhc,
                                     hc_mult=cfg.hc_mult
                                     ) 

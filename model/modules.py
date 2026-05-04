@@ -437,7 +437,7 @@ class MSA_Encoder(nn.Module) :
 
     
 class MOE_Encoder(nn.Module) :
-    def __init__(self,emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, c, k, n_experts,depth, every_2, hc_mult,use_mhc=False,mask=None, engram_config:EngramConfig=None):
+    def __init__(self,emb_dim, n_heads, attn_dropout, ffn_mul, ffn_dropout, c, k, n_experts,depth, every_2, hc_mult,use_mhc=False,mask=None, engram_config=None):
         super().__init__()
         self.engram_cfg = engram_config
         self.n_streams = hc_mult
@@ -485,7 +485,7 @@ class MOE_Encoder(nn.Module) :
                                         hc_mult=hc_mult,
                                         use_mhc=use_mhc,
                                         mask=mask))
-        if engram_config.engram_layer_n :
+        if engram_config :
             if use_mhc :
                 self.engram_layer = nn.ModuleList([EngramModule(engram_config, n_streams=hc_mult) for _ in engram_config.engram_layer_n])
                 self.engram_mhc = nn.ModuleList([mHyperConnection(emb_dim, hc_mult, sinkhorn_iter=20)])
@@ -501,7 +501,7 @@ class MOE_Encoder(nn.Module) :
             out = out.expand(-1, -1, self.n_streams, -1)
 
         for idx, layer in enumerate(self.MOE_layer) :
-            if idx + 1 in self.engram_cfg.engram_layer_n :
+            if self.engram_cfg and idx + 1 in self.engram_cfg.engram_layer_n :
                 layer_idx = self.engram_cfg.engram_layer_n.index(idx+1)
                 if self.use_mhc :
                     def engram_fn(h, _idx=layer_idx):

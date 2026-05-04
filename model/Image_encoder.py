@@ -95,7 +95,7 @@ class VIT(nn.Module) :
                                    n_experts=cfg.n_experts,
                                    every_2=cfg.every_2,
                                    hc_mult=cfg.hc_mult,
-                                   engram_cfg=engram_cfg
+                                   engram_config=engram_cfg
                                    )
         else :
             self.Encoder = MSA_Encoder(ffn_dropout=cfg.ffn_dropout,
@@ -105,6 +105,7 @@ class VIT(nn.Module) :
                                    ffn_mul=cfg.ffn_mul,
                                    n_heads=cfg.n_heads,
                                    hc_mult=cfg.hc_mult,
+                                   use_mhc=cfg.use_mhc,
                                    engram_config=engram_cfg)
 
     def forward(self, x, engram_embedding_table=None) :
