@@ -42,7 +42,7 @@ class TetConfig:
 class token_embedding(nn.Module) :
     def __init__(self, embed_dim:int, vocab_n:int, max_ctx_n:int):
         super().__init__()
-        self.embedding = nn.Embedding(num_embeddings=vocab_n, embedding_dim=embed_dim, padding_idx=77)
+        self.embedding = nn.Embedding(num_embeddings=vocab_n, embedding_dim=embed_dim, padding_idx=1)
         self.pos_emb = nn.Parameter(torch.empty(max_ctx_n, embed_dim))
     
     def forward(self, x) :
@@ -53,13 +53,14 @@ class TET(nn.Module) :
     def __init__(self, cfg:TetConfig, engram_cfg:EngramConfig):
         super().__init__()
         self.cfg = cfg
-        self.register_buffer(
-            'attn_mask', torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device="cuda", dtype=torch.float16)
-        )
 
         self.use_moe = cfg.use_moe
         
         self.token_emb = token_embedding(vocab_n=cfg.vocab_size, embed_dim=cfg.emb_dim, max_ctx_n=cfg.max_ctx_len)
+        self.register_buffer(
+            'attn_mask', torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device=next(self.parameters()).device, dtype=next(self.parameters()).dtype)
+        )
+        
         if cfg.use_moe :
             self.Encoder = MOE_Encoder(ffn_dropout=cfg.ffn_dropout,
                                     attn_dropout=cfg.attn_dropout,
@@ -75,7 +76,7 @@ class TET(nn.Module) :
                                     engram_config=engram_cfg,
                                     use_mhc=cfg.use_mhc,
                                     hc_mult=cfg.hc_mult
-                                    ) 
+                                    )
         else :
             self.Encoder = MSA_Encoder(ffn_dropout=cfg.ffn_dropout,
                                     mask=self.attn_mask,

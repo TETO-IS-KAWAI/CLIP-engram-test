@@ -28,21 +28,21 @@ class clip_config_set :
                 img_size = 224,
                 patch_size = 16,
                 emb_dim = 768,
-                depth = 12,
+                depth = 14,
                 n_heads = 12,
                 attn_dropout = 0.1,
                 ffn_mul = 4,
                 ffn_dropout = 0.1,
                 use_moe = False,
                 use_mhc = False,
-                device = "cuda"
+                device = "cuda",
         ),
         vit_engram_config = None,
         tet_config = TetConfig(
-                vocab_size = 49408,
+                vocab_size = 128256,
                 max_ctx_len = 77,
                 emb_dim = 512,
-                depth = 12,
+                depth = 14,
                 n_heads = 8,
                 attn_dropout = 0.1,
                 ffn_mul = 4,
@@ -74,7 +74,7 @@ class clip_config_set :
         ),
         vit_engram_config = None,
         tet_config = TetConfig(
-                vocab_size = 49408,
+                vocab_size = 250002,
                 max_ctx_len = 77,
                 emb_dim = 512,
                 depth = 12,
@@ -113,10 +113,13 @@ class clip_config_set :
                 device = "cuda",
         ),
         vit_engram_config = EngramConfig(
-            embd_d=768,
+                embd_d = 768,
+                engram_embd_d = 2048,
+                engram_vocab_size = 65536,
+                max_ngram = 3
         ),
         tet_config = TetConfig(
-                vocab_size = 49408,
+                vocab_size = 250002,
                 max_ctx_len = 77,
                 emb_dim = 512,
                 depth = 12,
@@ -132,5 +135,10 @@ class clip_config_set :
                 use_mhc = False,
                 device = "cuda",
         ),
-        tet_engram_config = None,
+        tet_engram_config = EngramConfig(
+                embd_d = 512,
+                engram_embd_d = 2048,
+                engram_vocab_size = 98304,
+                max_ngram = 3
+        ),
     )

@@ -117,8 +117,8 @@ if __name__ == "__main__" :
     import model_configs
     import torchinfo
 
-    temp_model = CLIP(clip_cfg=clip_config_set.clip_B_normal).to(device="cuda", dtype=torch.float16)
-    test_img = torch.randn((100, 3,224, 224), device="cuda", dtype=torch.float16)
+    temp_model = CLIP(clip_cfg=clip_config_set.clip_150M_normal).to(device="cuda", dtype=torch.float32)
+    test_img = torch.randn((100, 3,224, 224), device="cuda", dtype=torch.float32)
     test_text = torch.randint(0, 100, (100, 77), device="cuda", dtype=torch.int32)
 
     torchinfo.summary(temp_model, input_data=[(test_img, test_text)])

@@ -36,7 +36,6 @@ class VitConfig:
     # MHC
     use_mhc: bool = False
     hc_mult: int = 4
-    engram_cfg: object = None
 
     # etc
     device: str = "cuda"
