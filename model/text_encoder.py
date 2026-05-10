@@ -57,8 +57,10 @@ class TET(nn.Module) :
         self.use_moe = cfg.use_moe
         
         self.token_emb = token_embedding(vocab_n=cfg.vocab_size, embed_dim=cfg.emb_dim, max_ctx_n=cfg.max_ctx_len)
+        param = next(self.parameters())
+        
         self.register_buffer(
-            'attn_mask', torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device=next(self.parameters()).device, dtype=next(self.parameters()).dtype)
+            'attn_mask', torch.triu(torch.full((cfg.max_ctx_len, cfg.max_ctx_len), float("-inf")), diagonal=1).to(device=param.device, dtype=param.dtype)
         )
         
         if cfg.use_moe :
