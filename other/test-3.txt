@@ -1,0 +1,11 @@
+def engram_orthogonality_loss(embedding: nn.Embedding):
+    weights = embedding.weight
+    normed_weights = F.normalize(weights, p=2, dim=1)
+    sim_matrix = torch.matmul(normed_weights, normed_weights.T)
+    identity = torch.eye(sim_matrix.size(0)).to(sim_matrix.device)
+    off_diagonal_sim = sim_matrix - identity
+    ortho_loss = torch.norm(off_diagonal_sim, p='fro')
+    
+    return ortho_loss
+
+# 학습 루프에서 적용하기
