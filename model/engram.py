@@ -135,14 +135,15 @@ class EngramModule(nn.Module):
         for i in range(self.n_streams):
             k = self.norm_k[i](self.key_projs[i](emb))
             q = self.norm_q[i](x[:, :, i, :])
-            score = (q * k).sum(dim=-1, keepdim=True) / math.sqrt(self.embd_d)
+            score = (q * k).sum(dim=-1, keepdim=True) / math.sqrt(self.engram_embd_d)
             g = torch.sigmoid(score)
             gates.append(g)
 
-        gates = torch.stack(gates, dim=2)
-        v_gated = v_base.unsqueeze(2) * gates
-        y = v_gated + self.conv(v_gated)
+        g = torch.stack(gates, dim=2)
+        v_gated = v_base * g
 
-        if not use_mhc : 
-            y = y.squeeze(2)
-        return y
+        self.last_hash_ids = hash_ids.detach() 
+        self.last_gate_values = g.detach()
+        self.last_v_gated = v_gated.detach()
+
+        return x + v_gated.squeeze(2)
